@@ -4,7 +4,7 @@ import numpy as np
 from pysc2.env.environment import TimeStep, StepType
 from pysc2.lib import actions
 from pysc2.lib.features import SCREEN_FEATURES, MINIMAP_FEATURES, FeatureType
-
+from common.util import ActPrint
 
 def log_transform(x, scale):
     # 8 is a "feel good" magic number and doesn't mean anything here.
@@ -46,6 +46,10 @@ class ObsProcesser:
             numeric_idx_and_scale(SCREEN_FEATURES)
         self.minimap_numeric_idx, self.minimap_numeric_scale = \
             numeric_idx_and_scale(MINIMAP_FEATURES)
+        print("*test*", " screen_idx=", self.screen_numeric_idx)
+        print("*test*", " screen_scale=", self.screen_numeric_scale)
+        print("*test*", " minimap_idx=", self.minimap_numeric_idx)
+        print("*test*", " minimap_scale=", self.minimap_numeric_scale)
 
         screen_flag_names = ["creep", "power", "selected"]
         self.screen_flag_idx = [k.index for k in SCREEN_FEATURES
@@ -54,6 +58,9 @@ class ObsProcesser:
         minimap_flag_names = ["creep", "camera", "selected"]
         self.mimimap_flag_idx = [k.index for k in MINIMAP_FEATURES
             if k.name in minimap_flag_names]
+        print("*test*", " screen_flags=", screen_flag_names)
+        print("*test*", " minimap_flags=", minimap_flag_names)
+
 
     def get_screen_numeric(self, obs):
         screen_obs = obs["screen"]
@@ -161,6 +168,7 @@ class ActionProcesser:
         self.rect_select_action_id = find_rect_function_id()
         self.rect_delta = rect_delta
         self.dim = dim
+        self.aprint = ActPrint()
 
     def make_one_action(self, action_id, spatial_coordinates):
         args = list(self.default_args[action_id])
@@ -175,6 +183,7 @@ class ActionProcesser:
         return actions.FunctionCall(action_id, args)
 
     def process(self, action_ids, spatial_action_2ds):
+        self.aprint.print(["action_process", action_ids, spatial_action_2ds])
         return [self.make_one_action(a_id, coord)
             for a_id, coord in zip(action_ids, spatial_action_2ds)]
 

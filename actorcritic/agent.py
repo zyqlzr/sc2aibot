@@ -7,7 +7,7 @@ from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
 from actorcritic.policy import FullyConvPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
-from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
+from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs, StepPrint
 
 
 def _get_placeholders(spatial_dim):
@@ -116,6 +116,7 @@ class ActorCriticAgent:
         else:
             pars = optimiser_pars
         self.optimiser = opt_class(**pars)
+        self.sprint = StepPrint()
 
     def init(self):
         self.sess.run(self.init_op)
@@ -160,6 +161,14 @@ class ActorCriticAgent:
         neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(
             theta.action_id_probs * theta.action_id_log_probs, axis=1
         ))
+        print("*agent* neg_entropy_spatial={},action_probs={}, action_log_probs={}".format(
+            neg_entropy_spatial.shape, 
+            theta.spatial_action_probs.shape, 
+            theta.spatial_action_log_probs.shape))
+        print("*agent* neg_entropy_action_id={},action_id_probs={}, action_id_log_probs={}".format(
+            neg_entropy_action_id.shape,
+            theta.action_id_probs.shape,
+            theta.action_id_log_probs.shape))
 
         if self.mode == ACMode.PPO:
             # could also use stop_gradient and forget about the trainable
@@ -200,6 +209,10 @@ class ActorCriticAgent:
             self.sampled_spatial_action = weighted_random_sample(theta.spatial_action_probs)
             self.value_estimate = theta.value_estimate
             policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
+            print("*agent* sampled_action_id={},action_id_probs={}".format(
+                self.sampled_action_id, theta.action_id_probs))
+            print("*agent* sampled_spatial_action={}, spatial_action_probs={}".format(
+                self.sampled_spatial_action, theta.spatial_action_probs))
 
         value_loss = tf.losses.mean_squared_error(
             self.placeholders.value_target, theta.value_estimate)
@@ -257,7 +270,10 @@ class ActorCriticAgent:
         spatial_action_2d = np.array(
             np.unravel_index(spatial_action, (self.spatial_dim,) * 2)
         ).transpose()
-
+        self.sprint.print("*agent*, action_id={},spatial_action={},dim={},spatial_action_2d={}".format(
+            action_id, spatial_action, 
+            self.spatial_dim, 
+            spatial_action_2d))
         return action_id, spatial_action_2d, value_estimate
 
     def train(self, input_dict):

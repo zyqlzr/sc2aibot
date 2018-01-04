@@ -86,3 +86,31 @@ def dict_of_lists_to_list_of_dicst(x: dict):
     assert len(dim) == 1
     dim = dim.pop()
     return [{k: x[k][i] for k in x} for i in range(dim)]
+
+class PrintBase:
+    def __init__(self, sample=10):
+        self._sample = sample
+        self._count = 0
+
+    def print(self, obj):
+        self._count += 1
+        if self._count == self._sample:
+            self._count = 0
+            print(str(obj))
+
+class ObsPrint(PrintBase):
+    def __init__(self):
+        super(ObsPrint, self).__init__(30)
+
+class ActPrint(PrintBase):
+    def __init__(self):
+        super(ActPrint, self).__init__(30)
+
+class BatchPrint(PrintBase):
+    def __init__(self):
+        super(BatchPrint, self).__init__(10)
+
+class StepPrint(PrintBase):
+    def __init__(self):
+        super(StepPrint, self).__init__(1)
+

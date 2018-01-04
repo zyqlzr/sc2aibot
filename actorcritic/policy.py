@@ -3,7 +3,6 @@ from pysc2.lib import actions
 from pysc2.lib.features import SCREEN_FEATURES, MINIMAP_FEATURES
 from tensorflow.contrib import layers
 
-
 class FullyConvPolicy:
     """
     FullyConv network structure from https://arxiv.org/pdf/1708.04782.pdf
@@ -58,6 +57,11 @@ class FullyConvPolicy:
             trainable=self.trainable
         )
 
+        print("*model* units_embedded={},input={}, dim={}".format(
+            units_embedded.shape, 
+            self.placeholders.screen_unit_type.shape, 
+            self.unittype_emb_dim))
+
         # Let's not one-hot zero which is background
         player_relative_screen_one_hot = layers.one_hot_encoding(
             self.placeholders.player_relative_screen,
@@ -68,17 +72,37 @@ class FullyConvPolicy:
             num_classes=MINIMAP_FEATURES.player_relative.scale
         )[:, :, :, 1:]
 
+        print("*model* player_relative_screen_one_hot={},input={}, num_classes".format(
+            player_relative_screen_one_hot.shape, self.placeholders.player_relative_screen.shape, SCREEN_FEATURES.player_relative.scale))
+        print("*model* player_relative_minimap_one_hot={},input={}".format(
+            player_relative_minimap_one_hot.shape, self.placeholders.player_relative_minimap.shape, MINIMAP_FEATURES.player_relative.scale))
+
         channel_axis = 3
         screen_numeric_all = tf.concat(
             [self.placeholders.screen_numeric, units_embedded, player_relative_screen_one_hot],
             axis=channel_axis
         )
+        print("*model* screen_numric_all={}, input=[{},{},{}]".format(
+            screen_numeric_all.shape, 
+            self.placeholders.screen_numeric.shape, 
+            units_embedded.shape,
+            player_relative_screen_one_hot.shape))
+
         minimap_numeric_all = tf.concat(
             [self.placeholders.minimap_numeric, player_relative_minimap_one_hot],
             axis=channel_axis
         )
+        print("*model* minimap_numric_all={}, input=[{},{}]".format(
+            minimap_numeric_all.shape,
+            self.placeholders.minimap_numeric.shape,
+            player_relative_minimap_one_hot.shape))
+
         screen_output = self._build_convs(screen_numeric_all, "screen_network")
         minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
+        print("*model* conv_screen={},input={},".format(
+            screen_output.shape, screen_numeric_all.shape))
+        print("*model* conv_screen={},input={},".format(
+            minimap_output.shape, minimap_numeric_all.shape))
 
         map_output = tf.concat([screen_output, minimap_output], axis=channel_axis)
 
@@ -94,6 +118,10 @@ class FullyConvPolicy:
         )
 
         spatial_action_probs = tf.nn.softmax(layers.flatten(spatial_action_logits))
+        print("*model* action_probs={}, action_logits={}, map_output={}".format(
+            spatial_action_probs.shape,
+            spatial_action_logits.shape,
+            map_output.shape))
 
         map_output_flat = layers.flatten(map_output)
 
@@ -118,6 +146,11 @@ class FullyConvPolicy:
             scope='value',
             trainable=self.trainable
         ), axis=1)
+
+        print("*model* action_id_probs={}, value_estimate={}, map_output_flat={}".format(
+            action_id_probs.shape,
+            value_estimate.shape,
+            map_output_flat.shape))
 
         # disregard non-allowed actions by setting zero prob and re-normalizing to 1
         action_id_probs *= self.placeholders.available_action_ids

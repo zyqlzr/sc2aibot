@@ -5,7 +5,7 @@ import sys
 from actorcritic.agent import ActorCriticAgent, ACMode
 from common.preprocess import ObsProcesser, ActionProcesser, FEATURE_KEYS
 from common.util import calculate_n_step_reward, general_n_step_advantage, combine_first_dimensions, \
-    dict_of_lists_to_list_of_dicst
+    dict_of_lists_to_list_of_dicst, ObsPrint, ActPrint, BatchPrint, StepPrint
 import tensorflow as tf
 from absl import flags
 
@@ -39,6 +39,10 @@ class Runner(object):
             assert n_steps * envs.n_envs % ppo_par.batch_size == 0
             assert n_steps * envs.n_envs >= ppo_par.batch_size
             self.ppo_par = ppo_par
+        self.oprint = ObsPrint()
+        self.aprint = ActPrint()
+        self.sprint = StepPrint()
+        self.batch_print = BatchPrint()
 
     def reset(self):
         obs = self.envs.reset()
@@ -70,6 +74,7 @@ class Runner(object):
         mb_obs = []
         mb_values = np.zeros((self.envs.n_envs, self.n_steps + 1), dtype=np.float32)
         mb_rewards = np.zeros((self.envs.n_envs, self.n_steps), dtype=np.float32)
+        self.sprint.print(["values,rewards=", mb_values.shape, mb_rewards.shape])
 
         latest_obs = self.latest_obs
 
@@ -83,8 +88,10 @@ class Runner(object):
             mb_actions.append((action_ids, spatial_action_2ds))
 
             actions_pp = self.action_processer.process(action_ids, spatial_action_2ds)
+            self.aprint.print(["test act_print", action_ids, spatial_action_2ds, actions_pp])
             obs_raw = self.envs.step(actions_pp)
             latest_obs = self.obs_processer.process(obs_raw)
+            self.oprint.print(["test obs_print", [(k, v.shape) for k,v in latest_obs.items()]])
             mb_rewards[:, n] = [t.reward for t in obs_raw]
 
             for t in obs_raw:
@@ -109,6 +116,7 @@ class Runner(object):
         full_input.update(self.action_processer.combine_batch(mb_actions))
         full_input.update(self.obs_processer.combine_batch(mb_obs))
         full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()}
+        self.batch_print.print(["full_input=", [(k,v.shape) for (k,v) in full_input.items()]])
 
         if not self.do_training:
             pass
